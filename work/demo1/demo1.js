@@ -1,4 +1,5 @@
-const wordsList = ["孩子", "家长"];
+const filterList = ["点击进入直播间", "直播间", "直播中", "正在直播"];
+const wordsList = ["孩子", "家长", "添丁", "宝妈", "孕妇", "孕妈", "妈妈"];
 
 function sendOCRRequest(base64Image) {
   return new Promise((resolve, reject) => {
@@ -22,24 +23,37 @@ function sendOCRRequest(base64Image) {
     http.request(options.url, options, function (response) {
       var result = response.body.json();
       let responseSuccess = false;
-      if (result.words_result && wordsList.length) {
-        for (var i = 0; i < result.words_result.length; i++) {
-          // toastLog(result.words_result[i].words);
-          let boo = wordsList.map((x) => {
-            return result.words_result[i].words.indexOf(x);
-          });
-          if (boo.some((result) => result !== -1)) {
-            responseSuccess = true;
-            break;
-          } else {
-            responseSuccess = false;
+
+      // 遍历 filterList，只有当没有匹配项时才遍历 wordsList
+      for (var i = 0; i < filterList.length; i++) {
+        if (
+          result.words_result.some((word) => word.words.includes(filterList[i]))
+        ) {
+          responseSuccess = true;
+          resolve("跳过"); // 匹配成功，返回 '跳过'
+          break; // 结束循环
+        }
+      }
+
+      if (!responseSuccess) {
+        // 当 filterList 中没有匹配项时，遍历 wordsList
+        for (var j = 0; j < result.words_result.length; j++) {
+          for (var k = 0; k < wordsList.length; k++) {
+            if (result.words_result[j].words.includes(wordsList[k])) {
+              responseSuccess = true;
+              resolve("双击"); // 匹配成功，返回 '双击'
+              break; // 结束循环
+            }
+          }
+
+          if (responseSuccess) {
+            break; // 结束循环
           }
         }
       }
-      if (responseSuccess) {
-        resolve(true);
-      } else {
-        reject(new Error("识别失败"));
+
+      if (!responseSuccess) {
+        resolve("未匹配"); // 当没有匹配项时，返回 '未匹配'
       }
     });
   });
@@ -78,9 +92,15 @@ function loop() {
 
   sendOCRRequest(base64Image)
     .then((result) => {
-      if (result) {
-        toastLog("识别成功");
-        click(986, 1280);
+      if (result == "双击") {
+        toastLog("识别成功 双击");
+        click(529, 589);
+        sleep(100);
+        click(529, 589);
+      } else if (result == "跳过") {
+        toastLog("不合法 跳过");
+      } else {
+        toastLog(result);
       }
     })
     .catch((error) => {
